@@ -1,4 +1,4 @@
-import { analyzeAllText } from "./analysis.js"
+import { analyzeAllText, analyzeVisibleText } from "./analysis.js"
 import { FloatingCharacter } from "./floatingCharacter.js"
 
 const character = new FloatingCharacter()

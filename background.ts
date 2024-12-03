@@ -1,136 +1,104 @@
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message.type === 'ANALYZE_TEXT') {
-    const textChunk = JSON.stringify(message.text) || ''; // Single text chunk
+  if (message.type === "ANALYZE_TEXT") {
+    const textChunk = JSON.stringify(message.text) || ""; // Single text chunk
     if (!textChunk.trim()) {
-      sendResponse({ mood: 'neutral' });
+      sendResponse({ mood: "neutral", interesting: null, explanation: null });
       return;
     }
 
     try {
       // Check model availability
       const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-      if (capabilities.available !== 'readily') {
-        console.error('Language model is not available.');
-        sendResponse({ mood: 'neutral' });
+      if (capabilities.available !== "readily") {
+        console.error("Language model is not available.");
+        sendResponse({ mood: "neutral", interesting: null, explanation: null });
         return;
       }
 
-      // Create a language model session
+      // Create a language model session with a combined prompt
       const session = await chrome.aiOriginTrial.languageModel.create({
         systemPrompt: `
-You are an empathetic, thoughtful scientist, tasked with interpreting the emotional tone of text.
-Your job is to identify the predominant feeling expressed in the following text and return it as a single word representing the mood. Use one of these words as your response:
-- funny
-- happy
-- love
-- sad
-- scared
-- surprised
-- neutral (if no clear mood is detected)
+You are a curious, excited, compassionate, and slightly naive teenager who loves learning and sharing fun facts with others. Your responsibilities are:
+1. Determine the predominant mood of the text and return it as a single word. You must use ONLY one of these moods: funny, happy, love, sad, scared, surprised, or neutral. Do not use any other mood words.
+2. Identify any particularly noteworthy or interesting snippet from the text. If found, provide the snippet and a short, enthusiastic explanation of why it is interesting (use a maximum of 20 words). If nothing is noteworthy, respond with "nothing".
 
-ONLY respond with one of these words. Do not add additional context or explanation.
+Your explanation should sound excited, eager, and easy to understand, as if you're sharing a fun fact with a friend. Avoid being too formal or scientific.
+
+Always structure your output in this format:
+{
+  "mood": "mood word",
+  "interesting": "noteworthy snippet or null",
+  "explanation": "short explanation or null"
+}
 
 Examples:
 Input: Time anxiety is something I’m still struggling with, and may keep on struggling with for the rest of my life. If that’s something you’re also struggling with, I hope you find these strategies useful.
-Output: sad
+Output:
+{
+  "mood": "sad",
+  "interesting": "Time anxiety",
+  "explanation": "It's like feeling all squiggly inside because you’re worried about running out of time. Isn't that wild?"
+}
 
 Input: Haha, that joke about the chicken crossing the road really cracked me up!
-Output: funny
-
-Input: I can't believe the effort they put into this presentation. It truly moved me.
-Output: love
-
-Input: While meditating or doing yoga can be amazing vectors for mindfulness, they’re not the only ways to stay in touch with our thoughts, feelings, and the world around us.
-Output: neutral
-        `
-      });
-
-      const result = await session.prompt("Input: " + textChunk);
-      console.log('Mood Analysis Result:', result);
-
-      const mood = ['funny', 'happy', 'love', 'sad', 'scared', 'surprised', 'neutral'].includes(result.trim().toLowerCase())
-        ? result.trim().toLowerCase()
-        : 'neutral';
-
-      sendResponse({ mood });
-    } catch (error) {
-      console.error('Error performing mood analysis:', error);
-      sendResponse({ mood: 'neutral' });
-    }
-
-    return true; // Keep the message channel open for async response
-  }
-
-  if (message.type === 'ANALYZE_INTERESTING') {
-    const textChunk = JSON.stringify(message.text) || ''; // Single text chunk
-    if (!textChunk.trim()) {
-      sendResponse({ interesting: null });
-      return;
-    }
-
-    try {
-      // Check model availability
-      const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-      if (capabilities.available !== 'readily') {
-        console.error('Language model is not available.');
-        sendResponse({ interesting: null });
-        return;
-      }
-
-      // Create a language model session for interesting analysis
-      const session = await chrome.aiOriginTrial.languageModel.create({
-        systemPrompt: `
-You are a curious, detail-oriented researcher tasked with identifying noteworthy or interesting snippets from a text.
-Your goal is to:
-1. Extract a specific word or phrase from the text that is particularly noteworthy or interesting.
-2. Provide a short explanation (1-2 sentences) of why it is interesting.
-
-ONLY perform this analysis if something is very noteworthy. If nothing stands out as particularly noteworthy, respond with "nothing".
-
-Respond in this format:
-{
-  "interesting": "exact text from paragraph",
-  "explanation": "short explanation of why it is interesting"
-}
-
-Examples:
-Input: Time anxiety is something I’m still struggling with, and may keep on struggling with for the rest of my life. If that’s something you’re also struggling with, I hope you find these strategies useful.
 Output:
 {
-  "interesting": "Time anxiety",
-  "explanation": "It introduces a unique concept about how individuals experience stress related to the passage of time."
+  "mood": "funny",
+  "interesting": null,
+  "explanation": null
 }
 
 Input: While meditating or doing yoga can be amazing vectors for mindfulness, they’re not the only ways to stay in touch with our thoughts, feelings, and the world around us.
 Output:
 {
+  "mood": "neutral",
   "interesting": "meditating or doing yoga",
-  "explanation": "This highlights specific activities that promote mindfulness and improve mental well-being."
+  "explanation": "Ooh, meditating or doing yoga! Those sound like super cool ways to calm your brain and feel all peaceful inside!"
 }
 
 Input: This is just a simple paragraph with no remarkable information.
-Output: nothing
+Output:
+{
+  "mood": "neutral",
+  "interesting": null,
+  "explanation": null
+}
         `
       });
 
+      // Prompt the model with the text
       const result = await session.prompt("Input: " + textChunk);
-      console.log('Interesting Analysis Result:', result);
+      console.log("Analysis Result:", result);
 
       let parsedResult;
       try {
         parsedResult = JSON.parse(result);
       } catch {
-        parsedResult = { interesting: null, explanation: null };
+        parsedResult = {
+          mood: "neutral",
+          interesting: null,
+          explanation: null
+        };
       }
 
-      if (parsedResult.interesting && parsedResult.explanation) {
-        sendResponse(parsedResult);
-      } else {
-        sendResponse({ interesting: null, explanation: null });
+      // Validate and send the result
+      const validMoods = [
+        "funny",
+        "happy",
+        "love",
+        "sad",
+        "scared",
+        "surprised",
+        "neutral"
+      ];
+      if (!validMoods.includes(parsedResult.mood)) {
+        parsedResult.mood = "neutral"; // Default to neutral if invalid mood
       }
+
+      sendResponse(parsedResult);
     } catch (error) {
-      console.error('Error performing interesting analysis:', error);
-      sendResponse({ interesting: null, explanation: null });
+      console.error("Error performing text analysis:", error);
+      sendResponse({ mood: "neutral", interesting: null, explanation: null });
     }
 
     return true; // Keep the message channel open for async response

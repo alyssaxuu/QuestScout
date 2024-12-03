@@ -1,9 +1,14 @@
-import Found from "./assets/found.svg"
+import FunnyFound from "./assets/funny-found.svg"
 import FunnyReadingSVG from "./assets/funny-reading.svg"
+import HappyFound from "./assets/happy-found.svg"
 import HappyReadingSVG from "./assets/happy-reading.svg"
+import LoveFound from "./assets/love-found.svg"
 import LoveReadingSVG from "./assets/love-reading.svg"
+import SadFound from "./assets/sad-found.svg"
 import SadReadingSVG from "./assets/sad-reading.svg"
+import ScaredFound from "./assets/scared-found.svg"
 import ScaredReadingSVG from "./assets/scared-reading.svg"
+import SurprisedFound from "./assets/surprised-found.svg"
 import SurprisedReadingSVG from "./assets/surprised-reading.svg"
 import { SpeechBubble } from "./speechBubble.js"
 
@@ -31,40 +36,39 @@ export class FloatingCharacter {
 
     // Mood-to-image mapping
     this.moods = {
-      funny: { image: FunnyReadingSVG },
-      happy: { image: HappyReadingSVG },
-      love: { image: LoveReadingSVG },
-      sad: { image: SadReadingSVG },
-      scared: { image: ScaredReadingSVG },
-      surprised: { image: SurprisedReadingSVG }
+      funny: { image: FunnyReadingSVG, found: FunnyFound },
+      happy: { image: HappyReadingSVG, found: HappyFound },
+      love: { image: LoveReadingSVG, found: LoveFound },
+      sad: { image: SadReadingSVG, found: SadFound },
+      scared: { image: ScaredReadingSVG, found: ScaredFound },
+      surprised: { image: SurprisedReadingSVG, found: SurprisedFound },
+      neutral: { image: HappyReadingSVG, found: HappyFound }
     }
   }
 
-  moveToElement(element) {
+  async moveToElement(element) {
     const rect = element.getBoundingClientRect()
     const scrollTop = window.scrollY || document.documentElement.scrollTop
     const scrollLeft = window.scrollX || document.documentElement.scrollLeft
 
     this.element.style.left = `${rect.left + rect.width + scrollLeft}px`
     this.element.style.top = `${rect.top + scrollTop - 10}px`
+
+    // Wait for the transition to complete
+    await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 
-  updateMood(mood, customMessage) {
+  updateMood(mood, found = false) {
     const moodData = this.moods[mood]
     if (!moodData) {
       console.warn(`Mood "${mood}" not found.`)
       return
     }
-    // if (!customMessage) {
-    //   console.warn(`Custom message is required for mood "${mood}".`)
-    //   return
-    // }
-    this.avatar.src = moodData.image // Update character image
-    // this.bubble.show(customMessage) // Show the bubble with the provided message
+
+    this.avatar.src = found ? moodData.found : moodData.image
   }
 
   async speak(message) {
-    this.avatar.src = Found
     await this.bubble.show(message)
   }
 }

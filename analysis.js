@@ -1,6 +1,7 @@
 export const analyzeAllText = async (character, analyzedElements) => {
-  let interactionQueue = null // Stores the clicked highlight's details
+  let isCanceled = false // Flag to cancel current processing
 
+  // Get all elements to analyze
   const elements = Array.from(
     document.querySelectorAll(
       ".entry-content p, .entry-content span, .entry-content li"
@@ -13,32 +14,66 @@ export const analyzeAllText = async (character, analyzedElements) => {
     )
   })
 
-  for (const element of elements) {
+  const resetCancellation = () => {
+    isCanceled = false
+  }
+
+  const isVisibleInViewport = (el) => {
+    const rect = el.getBoundingClientRect()
+    return (
+      rect.top >= 0 &&
+      rect.left >= 0 &&
+      rect.bottom <=
+        (window.innerHeight || document.documentElement.clientHeight) &&
+      rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+    )
+  }
+
+  for (let i = 0; i < elements.length; i++) {
+    const element = elements[i]
     const identifier = element.innerText.trim()
 
     // Skip already-analyzed elements
     if (
       analyzedElements.has(identifier) ||
       element.classList.contains("analyzed-text")
-    )
+    ) {
       continue
+    }
+
+    // Wait until the element is visible in the viewport
+    while (!isVisibleInViewport(element)) {
+      await new Promise((resolve) => setTimeout(resolve, 100)) // Check every 100ms
+    }
+
+    // Cancel the current analysis if required
+    if (isCanceled) {
+      i-- // Retry the current paragraph on resumption
+      await new Promise((resolve) => setTimeout(resolve, 100)) // Wait briefly before resuming
+      continue
+    }
 
     // Highlight the current element
     element.classList.add("currently-analyzing")
 
     // Move the character to the element
-    character.moveToElement(element)
+    await character.moveToElement(element)
+    if (isCanceled) {
+      console.log("Movement canceled due to highlight interaction")
+      element.classList.remove("currently-analyzing")
+      continue
+    }
 
     const text = element.innerText.trim()
     if (!text) continue
 
-    //await character.speak(`How are you today?`)
-
-    // Analyze text and get the mood
-    const mood = await analyzeTextForMood(text)
-
-    // Check for noteworthy text
-    const noteworthy = await analyzeTextForNoteworthy(text)
+    // Combined analysis for mood and noteworthy text
+    const analysisResult = await analyzeTextCombined(text)
+    if (isCanceled) {
+      console.log("Analysis canceled due to highlight interaction")
+      element.classList.remove("currently-analyzing")
+      continue
+    }
 
     // Mark the element as analyzed visually and in the set
     element.classList.remove("currently-analyzing")
@@ -46,32 +81,52 @@ export const analyzeAllText = async (character, analyzedElements) => {
     analyzedElements.add(identifier)
 
     // Update the character mood
+    const { mood, interesting, explanation } = analysisResult
+    if (isCanceled) {
+      console.log("Mood update canceled due to highlight interaction")
+      continue
+    }
     character.updateMood(mood)
 
     // If there's noteworthy text, highlight it
-    if (noteworthy.interesting && noteworthy.explanation) {
+    if (interesting && explanation) {
       handleHighlightInteraction(
         element,
-        noteworthy.interesting,
-        noteworthy.explanation,
+        interesting,
+        explanation,
+        mood,
         character,
-        (highlightData) => {
-          interactionQueue = highlightData // Queue the highlight interaction
+        () => {
+          isCanceled = true // Trigger cancellation
+        },
+        async () => {
+          resetCancellation() // Resume processing
         }
       )
     }
 
-    // Wait for 5 seconds before moving to the next element
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    // Process queued interaction if it exists
-    if (interactionQueue) {
-      const { highlight, explanation } = interactionQueue
-      isPaused = true
-      await handleQueuedInteraction(highlight, explanation, character)
-      interactionQueue = null // Clear the queue
-      isPaused = false
+    // Wait for 3 seconds before moving to the next element
+    await new Promise((resolve) => setTimeout(resolve, 3000))
+    if (isCanceled) {
+      console.log("Wait interrupted due to highlight interaction")
     }
+  }
+}
+
+// Helper function for combined analysis
+const analyzeTextCombined = async (text) => {
+  try {
+    return await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ type: "ANALYZE_TEXT", text }, (response) => {
+        resolve({
+          mood: response?.mood || "neutral",
+          interesting: response?.interesting || null,
+          explanation: response?.explanation || null
+        })
+      })
+    })
+  } catch {
+    return { mood: "neutral", interesting: null, explanation: null } // Default to neutral if an error occurs
   }
 }
 
@@ -80,8 +135,10 @@ const handleHighlightInteraction = (
   element,
   textToHighlight,
   explanation,
+  mood,
   character,
-  queueInteraction
+  onPause,
+  onResume
 ) => {
   const regex = new RegExp(`(${textToHighlight})`, "i")
   element.innerHTML = element.innerHTML.replace(
@@ -93,60 +150,13 @@ const handleHighlightInteraction = (
 
   // Check if the highlight exists
   if (!highlight) return
-  highlight.addEventListener("click", () => {
-    queueInteraction({ highlight, explanation }) // Queue the highlight interaction
+
+  highlight.addEventListener("click", async () => {
+    onPause() // Pause processing
+    await character.moveToElement(highlight)
+    character.updateMood(mood, true) // Update the character mood
+    await character.speak(explanation) // Wait for the character to finish speaking
+    character.updateMood("happy") // Reset the character mood
+    onResume() // Resume processing
   })
-}
-
-// Helper function to process queued interaction
-const handleQueuedInteraction = async (highlight, explanation, character) => {
-  console.log(highlight)
-  await character.moveToElement(highlight)
-  await character.speak(explanation) // Wait for the character to finish speaking
-}
-
-// Helper function to analyze text and get the mood
-const analyzeTextForMood = async (text) => {
-  try {
-    return await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ type: "ANALYZE_TEXT", text }, (response) => {
-        const validMoods = [
-          "funny",
-          "happy",
-          "love",
-          "sad",
-          "scared",
-          "surprised",
-          "neutral"
-        ]
-        const mood = response?.mood
-        resolve(validMoods.includes(mood) ? mood : "neutral") // Default to neutral if invalid mood
-      })
-    })
-  } catch {
-    return "neutral" // Default to neutral if an error occurs
-  }
-}
-
-// Helper function to analyze text for noteworthy snippets
-const analyzeTextForNoteworthy = async (text) => {
-  try {
-    return await new Promise((resolve) => {
-      chrome.runtime.sendMessage(
-        { type: "ANALYZE_INTERESTING", text },
-        (response) => {
-          if (response?.interesting && response?.explanation) {
-            resolve({
-              interesting: response.interesting,
-              explanation: response.explanation
-            })
-          } else {
-            resolve({ interesting: null, explanation: null })
-          }
-        }
-      )
-    })
-  } catch {
-    return { interesting: null, explanation: null } // Default to null if an error occurs
-  }
 }
