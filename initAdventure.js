@@ -42,9 +42,13 @@ export const initAdventure = async (character) => {
       character.ready()
       analyzeAllText(character, analyzedElements)
     } else {
+      chrome.storage.sync.set({ quest: "learn something new" })
       character.ready()
       analyzeAllText(character, analyzedElements)
     }
+
+    // Scroll to the top of the page
+    window.scrollTo({ top: 0, behavior: "smooth" })
 
     console.log("User selected:", choice)
     console.log("Character initialized and analysis started")

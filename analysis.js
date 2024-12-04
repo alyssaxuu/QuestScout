@@ -43,10 +43,12 @@ export const analyzeAllText = async (character, analyzedElements) => {
 
     // Wait until the element is visible in the viewport
     while (!isVisibleInViewport(element)) {
-      character.updateMood("waiting")
+      if (!isCanceled) {
+        character.updateMood("waiting")
+      }
       await new Promise((resolve) => setTimeout(resolve, 100)) // Check every 100ms
     }
-    character.updateMood("happy")
+    character.updateMood("neutral")
 
     // Cancel the current analysis if required
     if (isCanceled) {
@@ -144,7 +146,7 @@ const handleHighlightInteraction = (
 ) => {
   const regex = new RegExp(
     `(${textToHighlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
-    "gi"
+    "i" // Only match the first instance
   )
   element.innerHTML = element.innerHTML.replace(
     regex,
@@ -161,7 +163,7 @@ const handleHighlightInteraction = (
     await character.moveToElement(highlight)
     character.updateMood(mood, true) // Update the character mood
     await character.speak(explanation) // Wait for the character to finish speaking
-    character.updateMood("happy") // Reset the character mood
+    character.updateMood("neutral") // Reset the character mood
     onResume() // Resume processing
   })
 }
