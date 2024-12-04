@@ -1,9 +1,9 @@
 {
-  "name": "test-ai",
-  "displayName": "Test ai",
+  "name": "QuestScout",
+  "displayName": "QuestScout",
   "version": "0.0.1",
-  "description": "A basic Plasmo extension.",
-  "author": "Alyssa X",
+  "description": "A friendly AI companion to help you stay engaged with the content you are reading in a fun and interactive way",
+  "author": "Alyssa X & Leo",
   "scripts": {
     "dev": "plasmo dev",
     "build": "plasmo build",
@@ -24,11 +24,11 @@
     "typescript": "5.3.3"
   },
   "manifest": {
-		
+		"key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA7N86znHto20HkehWzwfKt8aZobvCdf5+wgxWYMbo7HgL58tGAlR88GN4cjDhlpT11Xyf09JM5FTPXrzzFnJWBkf+uOQM5PyZajAWDu7kY/CEdMbGKF5l0sFJ6//Lrq8CrrtZ5nqQErv3gHuNmufwXSAr/HH2hk0sb7w+6gwiNYsVKFoFCnLuJaBPkjiA4UdH9emsTa/aVo3wXyZTlrIut/HqQPplL6/YF8aYd3LKRTAhoZ6N55rNQx8dXgwBhAaOJoe11GAUv29J7KuBWqpeCzEEmSWuWmxHNsfX7Yi9V4EGScDIeN+nqhbySQc61oBNd2kTu++9Wu+cE9zXc/nDxQIDAQAB",
     "host_permissions": [
       "https://*/*"
     ],
 		"permissions": ["aiLanguageModelOriginTrial", "scripting", "tabs", "activeTab", "storage"],
-		"trial_tokens": ["As+Ed4M9aBQs6cLLSSWlwtjxrKF8dew6N48HQ65imMdMmu5+uYfJ4d2H9IrpEOgsWts+0s3o2f3zUFe+nJ+jjA4AAAB4eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZW9kbW1obWhiZGxnbm9sam9lZGFubG1kY2ZobG9nY2giLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElGb3JFeHRlbnNpb24iLCJleHBpcnkiOjE3NjA0ODYzOTl9"]
+		"trial_tokens": ["AoEXyCR3yJmoDnq750yeLh3DJUqvO9P83P1EOKgycAa9Mi4j1T6LQ3NkA97ExcMDvCPM/RUSKIATaXbS0zy2awEAAAB4eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vb2NoY2FvZGxtZGFpZGNicG5na21uZWVqZGhpa2VwZ2siLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElGb3JFeHRlbnNpb24iLCJleHBpcnkiOjE3NjA0ODYzOTl9"]
   }
 }

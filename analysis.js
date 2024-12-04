@@ -48,7 +48,9 @@ export const analyzeAllText = async (character, analyzedElements) => {
       }
       await new Promise((resolve) => setTimeout(resolve, 100)) // Check every 100ms
     }
-    character.updateMood("neutral")
+    if (!isCanceled) {
+      character.updateMood("neutral")
+    }
 
     // Cancel the current analysis if required
     if (isCanceled) {
