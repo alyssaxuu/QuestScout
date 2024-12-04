@@ -7,7 +7,7 @@
     ".plasmo/index.d.ts",
     "./**/*.ts",
     "./**/*.tsx"
-, "character.js"  ],
+, "character.js", "background.js"  ],
   "compilerOptions": {
     "paths": {
       "~*": [

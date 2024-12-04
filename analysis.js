@@ -1,10 +1,12 @@
 export const analyzeAllText = async (character, analyzedElements) => {
   let isCanceled = false // Flag to cancel current processing
+  let moods = [] // Store moods during analysis
+  let excerpts = [] // Store noteworthy excerpts
 
   // Get all elements to analyze
   const elements = Array.from(
     document.querySelectorAll(
-      ".entry-content p, .entry-content span, .entry-content li"
+      ".entry-content p, .entry-content span, .entry-content li .available-content p, .available-content span, .available-content li article p, article span, article li"
     )
   ).filter((el) => {
     const identifier = el.innerText.trim()
@@ -90,7 +92,11 @@ export const analyzeAllText = async (character, analyzedElements) => {
       console.log("Mood update canceled due to highlight interaction")
       continue
     }
-    character.updateMood(mood, false, mood !== "neutral")
+    character.updateMood(mood, false, mood === "surprised")
+
+    // Store mood and noteworthy excerpts for conclusion
+    if (mood !== "neutral") moods.push(mood)
+    if (interesting) excerpts.push(interesting)
 
     // If there's noteworthy text, highlight it
     if (interesting && explanation) {
@@ -114,6 +120,32 @@ export const analyzeAllText = async (character, analyzedElements) => {
     if (isCanceled) {
       console.log("Wait interrupted due to highlight interaction")
     }
+  }
+
+  // Generate a conclusion once the last element is analyzed
+  if (elements.length > 0) {
+    console.log("Analysis complete. Generating conclusion...")
+
+    // Call the background script to generate the conclusion
+    chrome.runtime.sendMessage(
+      {
+        type: "GENERATE_CONCLUSION",
+        moods,
+        excerpts
+      },
+      (response) => {
+        if (response && response.ready) {
+          console.log("Conclusion generated:", response.conclusion)
+          character.speak(response.conclusion, "Thanks for your help!")
+        } else {
+          console.error("Error generating conclusion:", response.conclusion)
+          character.speak(
+            "Oops, I couldn't wrap up the adventure this time. Let's try again later!",
+            "Thanks for your help!"
+          )
+        }
+      }
+    )
   }
 }
 
@@ -162,7 +194,7 @@ const handleHighlightInteraction = (
     onPause() // Pause processing
     await character.moveToElement(highlight)
     character.updateMood(mood, true) // Update the character mood
-    await character.speak(explanation) // Wait for the character to finish speaking
+    await character.speak(explanation, "Great find!") // Wait for the character to finish speaking
     character.updateMood("neutral") // Reset the character mood
     onResume() // Resume processing
   })

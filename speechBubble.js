@@ -33,12 +33,12 @@ export class SpeechBubble {
   }
 
   // Show with a single button
-  async show(message) {
+  async show(message, action = "OK") {
     this.messageContainer.textContent = "" // Clear any existing text
     this.buttonContainer.innerHTML = "" // Clear previous buttons
 
     const button = document.createElement("button")
-    button.textContent = "Great find!"
+    button.textContent = action
     button.classList.add("speech-bubble-button")
     this.buttonContainer.appendChild(button)
 
@@ -261,7 +261,7 @@ export class SpeechBubble {
         display: flex;
         flex-direction: column;
         gap: 8px;
-        margin-top: 6px;
+        margin-top: 0px;
         align-items: flex-end;
         width: 100%;
       }

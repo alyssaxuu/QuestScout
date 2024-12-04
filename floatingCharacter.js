@@ -116,8 +116,8 @@ export class FloatingCharacter {
     this.element.style.transition = "all 1s ease-in-out"
   }
 
-  async speak(message) {
-    await this.bubble.show(message)
+  async speak(message, action = "OK") {
+    await this.bubble.show(message, action)
   }
 
   async showWithChoices(message, choices) {
