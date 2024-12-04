@@ -1,7 +1,7 @@
 # QuestScout
 https://github.com/user-attachments/assets/aaeaf332-64be-4a9a-8b0f-80386f9e67ba
 
-Mini chrome extension built in 24 hours for the [Google Chrome Built-in AI Challenge](https://googlechromeai.devpost.com/). You can try it by using the development build folder (chrome-mv3-dev) in chrome://extensions.
+Mini chrome extension built in 24 hours for the [Google Chrome Built-in AI Challenge](https://googlechromeai.devpost.com/). You can try it by using the development build folder (chrome-mv3-dev) in chrome://extensions. At the moment it can only be run in Ness Labs articles, like https://nesslabs.com/time-anxiety :)
 
 This is a [Plasmo extension](https://docs.plasmo.com/) project bootstrapped with [`plasmo init`](https://www.npmjs.com/package/plasmo).
 
