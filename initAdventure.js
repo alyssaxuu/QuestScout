@@ -33,8 +33,8 @@ export const initAdventure = async (character) => {
 
     if (choice === "quest") {
       const quest = await character.showWithInput(
-        "What’s your next adventure?",
-        "So many quests for you to do..."
+        "What’s today's quest?",
+        "E.g. Help me find uplifting concepts to make me feel better"
       )
 
       // Save the quest in chrome storage

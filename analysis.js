@@ -1,12 +1,10 @@
 export const analyzeAllText = async (character, analyzedElements) => {
   let isCanceled = false // Flag to cancel current processing
-  let moods = [] // Store moods during analysis
-  let excerpts = [] // Store noteworthy excerpts
 
   // Get all elements to analyze
   const elements = Array.from(
     document.querySelectorAll(
-      ".entry-content p, .entry-content span, .entry-content li .available-content p, .available-content span, .available-content li article p, article span, article li"
+      ".entry-content p, .entry-content span, .entry-content li"
     )
   ).filter((el) => {
     const identifier = el.innerText.trim()
@@ -59,30 +57,36 @@ export const analyzeAllText = async (character, analyzedElements) => {
       continue
     }
 
-    // Highlight the current element
-    element.classList.add("currently-analyzing")
-
     // Move the character to the element
     await character.moveToElement(element)
+
+    // Highlight the current element with a dashed border
+    element.classList.add("currently-analyzing")
+    element.style.outline = "2px dashed #CDCDCD"
+    element.style.borderRadius = "15px"
+    element.style.outlineOffset = "4px"
+    element.style.boxSizing = "border-box"
     if (isCanceled) {
       console.log("Movement canceled due to highlight interaction")
-      element.classList.remove("currently-analyzing")
+      removeHighlight(element)
       continue
     }
 
     const text = element.innerText.trim()
-    if (!text) continue
+    if (!text) {
+      removeHighlight(element)
+      continue
+    }
 
     // Combined analysis for mood and noteworthy text
     const analysisResult = await analyzeTextCombined(text)
     if (isCanceled) {
       console.log("Analysis canceled due to highlight interaction")
-      element.classList.remove("currently-analyzing")
+      removeHighlight(element)
       continue
     }
 
     // Mark the element as analyzed visually and in the set
-    element.classList.remove("currently-analyzing")
     element.classList.add("analyzed-text")
     analyzedElements.add(identifier)
 
@@ -92,11 +96,7 @@ export const analyzeAllText = async (character, analyzedElements) => {
       console.log("Mood update canceled due to highlight interaction")
       continue
     }
-    character.updateMood(mood, false, mood === "surprised")
-
-    // Store mood and noteworthy excerpts for conclusion
-    if (mood !== "neutral") moods.push(mood)
-    if (interesting) excerpts.push(interesting)
+    character.updateMood(mood, false, mood !== "neutral")
 
     // If there's noteworthy text, highlight it
     if (interesting && explanation) {
@@ -115,8 +115,9 @@ export const analyzeAllText = async (character, analyzedElements) => {
       )
     }
 
-    // Wait for 3 seconds before moving to the next element
-    await new Promise((resolve) => setTimeout(resolve, 3000))
+    // Wait for 2 seconds before moving to the next element
+    await new Promise((resolve) => setTimeout(resolve, 1000))
+    removeHighlight(element)
     if (isCanceled) {
       console.log("Wait interrupted due to highlight interaction")
     }
@@ -129,16 +130,16 @@ export const analyzeAllText = async (character, analyzedElements) => {
     // Call the background script to generate the conclusion
     chrome.runtime.sendMessage(
       {
-        type: "GENERATE_CONCLUSION",
-        moods,
-        excerpts
+        type: "GENERATE_CONCLUSION"
       },
       (response) => {
         if (response && response.ready) {
           console.log("Conclusion generated:", response.conclusion)
+          character.updateMood("neutral", true)
           character.speak(response.conclusion, "Thanks for your help!")
         } else {
           console.error("Error generating conclusion:", response.conclusion)
+          character.updateMood("neutral", true)
           character.speak(
             "Oops, I couldn't wrap up the adventure this time. Let's try again later!",
             "Thanks for your help!"
@@ -147,6 +148,12 @@ export const analyzeAllText = async (character, analyzedElements) => {
       }
     )
   }
+}
+
+// Remove the highlight from the element
+const removeHighlight = (element) => {
+  element.style.outline = ""
+  element.style.outlineOffset = ""
 }
 
 // Helper function for combined analysis
@@ -176,8 +183,9 @@ const handleHighlightInteraction = (
   onPause,
   onResume
 ) => {
+  const sanitizedText = textToHighlight.replace(/[/\\'""]/g, "") // Remove specific characters
   const regex = new RegExp(
-    `(${textToHighlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+    `(${sanitizedText.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
     "i" // Only match the first instance
   )
   element.innerHTML = element.innerHTML.replace(

@@ -9,56 +9,187 @@ chrome.action.onClicked.addListener((tab) => {
 })
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message.type === "ANALYZE_TEXT") {
-    const textChunk = JSON.stringify(message.text) || ""
-    if (!textChunk.trim()) {
-      sendResponse({ mood: "neutral", interesting: null, explanation: null })
-      return
+  try {
+    switch (message.type) {
+      case "ANALYZE_TEXT":
+        await handleAnalyzeText(message, sendResponse)
+        break
+
+      case "GENERATE_GREETING":
+        await handleGenerateGreeting(sendResponse)
+        break
+
+      case "GENERATE_CONCLUSION":
+        await handleGenerateConclusion(sendResponse)
+        break
+
+      default:
+        console.warn(`Unhandled message type: ${message.type}`)
     }
+  } catch (error) {
+    console.error(`Error handling message type: ${message.type}`, error)
+  }
+  return true // Keep the message channel open for async responses
+})
 
-    try {
-      // Check if the model is available
-      const capabilities =
-        await chrome.aiOriginTrial.languageModel.capabilities()
-      if (capabilities.available !== "readily") {
-        console.error("Language model is not available.")
-        sendResponse({ mood: "neutral", interesting: null, explanation: null })
-        return
-      }
+async function handleAnalyzeText(message, sendResponse) {
+  const textChunk = JSON.stringify(message.text || "").trim()
+  if (!textChunk) {
+    sendResponse({ mood: "neutral", interesting: null, explanation: null })
+    return
+  }
 
-      // Retrieve the user's quest or use a default
-      const quest = await new Promise((resolve) =>
-        chrome.storage.sync.get("quest", (result) => {
-          resolve(result.quest || "learn something new")
-        })
-      )
+  const capabilities = await chrome.aiOriginTrial.languageModel.capabilities()
+  if (capabilities.available !== "readily") {
+    console.error("Language model is not available.")
+    sendResponse({ mood: "neutral", interesting: null, explanation: null })
+    return
+  }
 
-      console.log("Quest:", quest)
+  const quest = await getStoredQuest()
+  if (!analysisSession || quest !== currentQuest) {
+    await resetAnalysisSession(quest)
+  }
 
-      // Create a new session if the quest changes or no session exists
-      if (!analysisSession || quest !== currentQuest) {
-        console.log("Creating a new session for the quest:", quest)
+  if (currentAbortController) currentAbortController.abort()
+  currentAbortController = new AbortController()
 
-        // Abort the existing session if any
-        if (currentAbortController) {
-          currentAbortController.abort()
-        }
+  const clonedSession = await analysisSession.clone({
+    signal: currentAbortController.signal
+  })
 
-        // Update the quest and create a new session
-        currentQuest = quest
-        analysisSession = await chrome.aiOriginTrial.languageModel.create({
-          systemPrompt: `
+  try {
+    const result = await clonedSession.prompt(
+      `Text: ${textChunk}\nQuest: ${quest}`
+    )
+    console.log(result)
+    const parsedResult = parseAnalysisResult(result)
+    await saveSessionData(parsedResult)
+    sendResponse(parsedResult)
+  } catch (error) {
+    console.error("Error during analysis:", error)
+    sendResponse({ mood: "neutral", interesting: null, explanation: null })
+  }
+}
+
+async function handleGenerateGreeting(sendResponse) {
+  // reset excerpt and mood storage
+  chrome.storage.sync.set({ moods: [], excerpts: [] })
+
+  const capabilities = await chrome.aiOriginTrial.languageModel.capabilities()
+  if (capabilities.available !== "readily") {
+    console.warn("Language model capabilities are not available.")
+    sendResponse({
+      greeting:
+        "Oh no, looks like the language model is not available! Make sure to follow the instructions carefully.",
+      ready: false
+    })
+    return
+  }
+
+  const greetingSession = await chrome.aiOriginTrial.languageModel.create({
+    systemPrompt: `
+You are a cute, quirky, and curious teenager with boundless excitement and childlike wonder. You’ve just been summoned by someone you look up to for an exciting new adventure!
+	
+	Write a short, friendly, and eager greeting to your new friend. Your message should show your excitement, admiration, and readiness for the adventure, while asking about the goal or objective they have in mind. Keep it short, to one or two sentences.
+	Do not use any emojis, slang, or overly casual language. Be polite, respectful, and enthusiastic.
+	Do not include the user's name or any personal information.
+	
+	Examples:
+		• Howdy partner! What's today's quest?
+		• Hey there! What's the plan for today's adventure?
+		• Hiya! What's the mission for today, captain?
+    `
+  })
+
+  try {
+    const result = await greetingSession.prompt(
+      "Create a greeting message to your new friend."
+    )
+    greetingSession.destroy()
+    sendResponse({ greeting: result.trim(), ready: true })
+  } catch (error) {
+    console.error("Error generating greeting:", error)
+    sendResponse({
+      greeting: "Oh no, something went wrong. Please try again later.",
+      ready: false
+    })
+  }
+}
+
+async function handleGenerateConclusion(sendResponse) {
+  const capabilities = await chrome.aiOriginTrial.languageModel.capabilities()
+  if (capabilities.available !== "readily") {
+    console.warn("Language model capabilities are not available.")
+    sendResponse({
+      conclusion:
+        "The language model is not available. Please check the settings.",
+      ready: false
+    })
+    return
+  }
+
+  const quest = await getStoredQuest()
+  const { excerpts, moods } = await getSessionData()
+
+  const conclusionSession = await chrome.aiOriginTrial.languageModel.create({
+    systemPrompt: `
+You are a bright, inquisitive, and slightly mischievous teenager who has just completed an exciting adventure with your new friend, reading a web article together. You're now wrapping up the adventure and saying goodbye.
+	
+	Write a short, cheerful, and heartfelt conclusion to the adventure. Your message should:
+	- Summarize the key points of the adventure (Excerpts), how they relate to the user's goal (Quest)
+	- Reflect on how you felt during the adventure (Moods)
+	- Express your gratitude, excitement, and anticipation for the next adventure
+	
+	Your conclusion must be no more than 3 sentences. Be polite, respectful, and enthusiastic. Do not use any emojis, slang, or overly casual language.
+    `
+  })
+
+  try {
+    const result = await conclusionSession.prompt(`
+Quest: ${quest}
+Excerpts: ${excerpts.join(", ")}
+Moods: ${moods.join(", ")}
+Wrap up the session with a personalized conclusion.
+    `)
+    conclusionSession.destroy()
+    sendResponse({ conclusion: result.trim(), ready: true })
+  } catch (error) {
+    console.error("Error generating conclusion:", error)
+    sendResponse({
+      conclusion:
+        "Oh no, something went wrong while generating the conclusion message!",
+      ready: false
+    })
+  }
+}
+
+// Utility Functions
+
+async function getStoredQuest() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get("quest", (result) => {
+      resolve(result.quest || "learn something new")
+    })
+  })
+}
+
+async function resetAnalysisSession(quest) {
+  if (currentAbortController) currentAbortController.abort()
+  analysisSession = await chrome.aiOriginTrial.languageModel.create({
+    systemPrompt: `
 You are a curious, excited, compassionate, and slightly naive teenager who loves learning and sharing fun facts with others. Your responsibilities are:
 1. Determine the predominant mood of the text and return it as a single word. You must use ONLY one of these moods: funny, happy, love, sad, scared, surprised, or neutral. Do not use any other mood words.
 2. Identify any particularly relevant snippet from the text that relate to the user's goal for the browsing session it will be given to you as "Quest:" in the input.
-3. If found, provide the snippet EXACTLY AS FOUND and a short, explanation of why it is relevant (use a maximum of 20 words). If nothing is relevant, respond with "nothing".
+3. If found, provide the snippet EXACTLY AS FOUND, maintain all capitalisation, formatting and punctuation. If nothing is relevant, respond with "null".
+4. A short explanation of why it the snippet is relevant (use a maximum of 20 words). If nothing is relevant, respond with "null".
 
 Your explanation should sound excited, eager, and easy to understand, as if you're sharing a fun fact with a friend. Avoid being too formal or scientific.
 
 Always structure your output in this format:
 {
   "mood": "mood word",
-  "interesting": "exact snippet from text, including punctuation and capitalisation or null",
+  "interesting": "exact snippet from text or null",
   "explanation": "short explanation or null"
 }
 
@@ -98,197 +229,54 @@ Output:
   "interesting": null,
   "explanation": null
 }
-        `
-        })
-      }
+    `
+  })
+  currentQuest = quest
+}
 
-      // Abort any ongoing task
-      if (currentAbortController) {
-        currentAbortController.abort()
-      }
-
-      // Create a new AbortController for the cloned session
-      currentAbortController = new AbortController()
-
-      // Clone the session
-      const clonedSession = await analysisSession.clone({
-        signal: currentAbortController.signal
+async function getSessionData() {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(["excerpts", "moods"], (result) => {
+      resolve({
+        excerpts: result.excerpts || [],
+        moods: result.moods || []
       })
+    })
+  })
+}
 
-      // Prompt the cloned session
-      const result = await clonedSession.prompt(
-        `Text: ${textChunk}\nQuest: ${quest}`
-      )
-      console.log("Analysis Result:", result)
+async function saveSessionData(parsedResult) {
+  return new Promise((resolve) => {
+    chrome.storage.sync.get(["moods", "excerpts"], (result) => {
+      const moods = result.moods || []
+      const excerpts = result.excerpts || []
+      if (parsedResult.mood) moods.push(parsedResult.mood)
+      if (parsedResult.interesting) excerpts.push(parsedResult.interesting)
+      chrome.storage.sync.set({ moods, excerpts }, resolve)
+    })
+  })
+}
 
-      let parsedResult
-      try {
-        parsedResult = JSON.parse(result)
-      } catch {
-        parsedResult = {
-          mood: "neutral",
-          interesting: null,
-          explanation: null
-        }
-      }
-
-      const validMoods = [
-        "funny",
-        "happy",
-        "love",
-        "sad",
-        "scared",
-        "surprised",
-        "neutral"
-      ]
-      if (!validMoods.includes(parsedResult.mood)) {
-        parsedResult.mood = "neutral"
-      }
-
-      // Save the mood and interesting snippet to storage, added to an array
-      chrome.storage.sync.get(["moods", "excerpts"], (result) => {
-        const moods = result.moods || []
-        const excerpts = result.excerpts || []
-        moods.push(parsedResult.mood)
-        excerpts.push(parsedResult.interesting)
-        chrome.storage.sync.set({ moods, excerpts })
-      })
-
-      sendResponse(parsedResult)
-    } catch (error) {
-      console.error("Error performing text analysis:", error)
-      sendResponse({ mood: "neutral", interesting: null, explanation: null })
-    }
-
-    return true // Keep the message channel open for async response
-  } else if (message.type === "GENERATE_GREETING") {
-    // Reset the moods and excerpts in storage
-    chrome.storage.sync.set({ moods: [], excerpts: [] })
-
-    try {
-      // Check if the language model capabilities are available
-      const capabilities =
-        await chrome.aiOriginTrial.languageModel.capabilities()
-      if (capabilities.available !== "readily") {
-        console.warn("Language model capabilities are not available.")
-        sendResponse({
-          greeting:
-            "Oh no, looks like the language model is not available! Make sure to follow the instructions carefully.",
-          ready: false
-        })
-        return true // Exit early if capabilities are not available
-      }
-
-      // Create a session for generating greetings
-      const greetingSession = await chrome.aiOriginTrial.languageModel.create({
-        systemPrompt: `
-	You are a cute, quirky, and curious teenager with boundless excitement and childlike wonder. You’ve just been summoned by someone you look up to for an exciting new adventure!
-	
-	Write a short, friendly, and eager greeting to your new friend. Your message should show your excitement, admiration, and readiness for the adventure, while asking about the goal or objective they have in mind. Keep it short, to one or two sentences.
-	Do not use any emojis, slang, or overly casual language. Be polite, respectful, and enthusiastic.
-	
-	Examples:
-		• Howdy partner! What's today's quest?
-		• Hey there! What's the plan for today's adventure?
-		• Hiya! What's the mission for today, captain?
-				`
-      })
-
-      // Generate the greeting
-      const greetingResult = await greetingSession.prompt(
-        "Create a greeting message to your new friend."
-      )
-
-      // Terminate the session
-      greetingSession.destroy()
-
-      sendResponse({
-        greeting: greetingResult,
-        ready: true
-      })
-    } catch (error) {
-      console.error("Error generating greeting message:", error)
-      sendResponse({
-        greeting:
-          "Oh no, something went wrong while generating the greeting message! Please try again.",
-        ready: false
-      })
-    }
-
-    return true
-  } else if (message.type === "GENERATE_CONCLUSION") {
-    try {
-      // Check if the language model capabilities are available
-      const capabilities =
-        await chrome.aiOriginTrial.languageModel.capabilities()
-      if (capabilities.available !== "readily") {
-        console.warn("Language model capabilities are not available.")
-        sendResponse({
-          conclusion:
-            "Oh no, looks like the language model is not available! Make sure to follow the instructions carefully.",
-          ready: false
-        })
-        return true // Exit early if capabilities are not available
-      }
-
-      // Retrieve the user's quest or use a default
-      const quest = await new Promise((resolve) =>
-        chrome.storage.sync.get("quest", (result) => {
-          resolve(result.quest || "learn something new")
-        })
-      )
-
-      // Retrieve the excerpts and moods from storage
-      const { excerpts, moods } = await new Promise((resolve) =>
-        chrome.storage.sync.get(["excerpts", "moods"], (result) => {
-          resolve({
-            excerpts: result.excerpts || [],
-            moods: result.moods || []
-          })
-        })
-      )
-
-      // Create a session for generating conclusions
-      const conclusionSession = await chrome.aiOriginTrial.languageModel.create(
-        {
-          systemPrompt: `
-	You are a bright, inquisitive, and slightly mischievous teenager who has just completed an exciting adventure with your new friend. You're now wrapping up the adventure and saying goodbye.
-	
-	Write a short, cheerful, and heartfelt conclusion to the adventure. Your message should:
-	1. Express gratitude, happiness, and a sense of accomplishment.
-	2. Reflect on the user's "Quest" provided (e.g., what they wanted to learn, achieve, or explore during the session).
-	3. Mention the overall mood of the session using the moods provided (e.g., enlightening, funny, insightful).
-	4. Highlight your favorite part or a fun fact based on the excerpts provided.
-	
-	Your conclusion should be no more than 2-3 sentences. Be polite, respectful, and enthusiastic. Do not use any emojis, slang, or overly casual language.
-				`
-        }
-      )
-
-      // Generate the conclusion based on the session data
-      const conclusionResult = await conclusionSession.prompt(`
-	Quest: ${quest}
-	Excerpts: ${excerpts.join(", ")}
-	Moods: ${moods.join(", ")}
-	Wrap up the session with a personalized conclusion.
-			`)
-
-      console.log("Conclusion Message:", conclusionResult)
-
-      // Terminate the session
-      conclusionSession.destroy()
-
-      sendResponse({
-        conclusion: conclusionResult.trim(),
-        ready: true
-      })
-    } catch (error) {
-      console.error("Error generating conclusion message:", error)
-      sendResponse({
-        conclusion:
-          "Oh no, something went wrong while generating the conclusion message! Please try again.",
-        ready: false
-      })
-    }
+function parseAnalysisResult(result) {
+  let parsedResult
+  try {
+    parsedResult = JSON.parse(result)
+  } catch {
+    parsedResult = { mood: "neutral", interesting: null, explanation: null }
   }
-})
+
+  const validMoods = [
+    "funny",
+    "happy",
+    "love",
+    "sad",
+    "scared",
+    "surprised",
+    "neutral"
+  ]
+  if (!validMoods.includes(parsedResult.mood)) {
+    parsedResult.mood = "neutral"
+  }
+
+  return parsedResult
+}

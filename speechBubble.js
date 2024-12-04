@@ -110,6 +110,7 @@ export class SpeechBubble {
     const submitButton = document.createElement("button")
     submitButton.textContent = "Submit"
     submitButton.classList.add("speech-bubble-button")
+    //submitButton.disabled = true // Initially disable the button
     inputContainer.appendChild(submitButton)
 
     this.buttonContainer.appendChild(inputContainer)
@@ -128,16 +129,36 @@ export class SpeechBubble {
     return new Promise((resolve) => {
       let resolved = false // Flag to ensure resolve is called only once
 
-      submitButton.addEventListener("click", async () => {
+      const validateInput = () => {
+        const userInput = textarea.value.trim()
+        //submitButton.disabled = userInput === "" // Disable button if input is empty
+      }
+
+      const submitInput = async () => {
         const userInput = textarea.value.trim()
         if (userInput && !resolved) {
           resolved = true // Prevent multiple resolves
           await this.hide()
           resolve(userInput) // Resolve with the input value
+        } else {
+          textarea.classList.add("invalid") // Add an invalid class for visual feedback
+        }
+      }
+
+      // Handle input change
+      textarea.addEventListener("input", validateInput)
+
+      // Handle button click
+      submitButton.addEventListener("click", submitInput)
+
+      // Handle pressing Enter key
+      textarea.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          event.preventDefault() // Prevent newline in the textarea
+          submitInput()
         }
       })
 
-      // Optional: Add additional safeguards like a timeout or debug logs.
       console.log("Waiting for user input...")
     })
   }
@@ -277,7 +298,7 @@ export class SpeechBubble {
 
       .speech-bubble-textarea {
   width: 100%;
-  height: 100px; /* Set the height for multiline input */
+  height: 150px; /* Set the height for multiline input */
   padding: 8px;
   border: 4px solid #EFF0F2;
   border-radius: 16px;
@@ -294,6 +315,11 @@ export class SpeechBubble {
 
 .speech-bubble-textarea:focus {
   border-color: #D9FFB0; /* Highlight border on focus */
+	background-color: #FFF!important;
+}
+
+.invalid {
+		border-color: #E72070;
 }
 
       .speech-bubble-button {
