@@ -38,7 +38,7 @@ export class SpeechBubble {
     this.buttonContainer.innerHTML = "" // Clear previous buttons
 
     const button = document.createElement("button")
-    button.textContent = "OK"
+    button.textContent = "Great find!"
     button.classList.add("speech-bubble-button")
     this.buttonContainer.appendChild(button)
 

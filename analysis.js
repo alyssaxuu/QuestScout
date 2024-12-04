@@ -43,8 +43,10 @@ export const analyzeAllText = async (character, analyzedElements) => {
 
     // Wait until the element is visible in the viewport
     while (!isVisibleInViewport(element)) {
+      character.updateMood("waiting")
       await new Promise((resolve) => setTimeout(resolve, 100)) // Check every 100ms
     }
+    character.updateMood("happy")
 
     // Cancel the current analysis if required
     if (isCanceled) {
@@ -86,7 +88,7 @@ export const analyzeAllText = async (character, analyzedElements) => {
       console.log("Mood update canceled due to highlight interaction")
       continue
     }
-    character.updateMood(mood)
+    character.updateMood(mood, false, mood !== "neutral")
 
     // If there's noteworthy text, highlight it
     if (interesting && explanation) {

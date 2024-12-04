@@ -10,6 +10,9 @@ import ScaredFound from "./assets/scared-found.svg"
 import ScaredReadingSVG from "./assets/scared-reading.svg"
 import SurprisedFound from "./assets/surprised-found.svg"
 import SurprisedReadingSVG from "./assets/surprised-reading.svg"
+import VHappyFound from "./assets/vhappy-found.svg"
+import VHappyReadingSVG from "./assets/vhappy-reading.svg"
+import WaitingRead from "./assets/waiting-read.svg"
 import { SpeechBubble } from "./speechBubble.js"
 
 export class FloatingCharacter {
@@ -42,12 +45,13 @@ export class FloatingCharacter {
     // Mood-to-image mapping
     this.moods = {
       funny: { image: FunnyReadingSVG, found: FunnyFound },
-      happy: { image: HappyReadingSVG, found: HappyFound },
+      happy: { image: VHappyReadingSVG, found: VHappyFound },
       love: { image: LoveReadingSVG, found: LoveFound },
       sad: { image: SadReadingSVG, found: SadFound },
       scared: { image: ScaredReadingSVG, found: ScaredFound },
       surprised: { image: SurprisedReadingSVG, found: SurprisedFound },
-      neutral: { image: HappyReadingSVG, found: HappyFound }
+      neutral: { image: HappyReadingSVG, found: HappyFound },
+      waiting: { image: WaitingRead, found: WaitingRead }
     }
   }
 
@@ -81,14 +85,27 @@ export class FloatingCharacter {
     }
   }
 
-  updateMood(mood, found = false) {
+  updateMood(mood, found = false, surprise = false) {
     const moodData = this.moods[mood]
     if (!moodData) {
       console.warn(`Mood "${mood}" not found.`)
       return
     }
 
+    // Update the avatar image
     this.avatar.src = found ? moodData.found : moodData.image
+
+    // Add "jump" animation if the mood is surprise
+    if (surprise) {
+      this.element.style.transition = "transform 0.2s ease-in-out"
+      this.element.style.transform = "scale(1.2)"
+
+      // Reset to normal scale after the jump
+      setTimeout(() => {
+        this.element.style.transform = "scale(1)"
+        this.element.style.transition = "all 1s ease-in-out"
+      }, 200)
+    }
   }
 
   ready() {

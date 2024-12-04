@@ -1,38 +1,52 @@
+let analysisSession = null; // Main session for text analysis
+let currentQuest = null; // Tracks the current quest
+let currentAbortController = null; // Tracks the AbortController for analysis sessions
+
 chrome.action.onClicked.addListener((tab) => {
-  // Send a message to the content script to initialize the character
   if (tab.id) {
     chrome.tabs.sendMessage(tab.id, { type: "INIT_ADVENTURE" });
   }
 });
 
 chrome.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
-  if (message.type === "ANALYZE_TEXT") {
-    const textChunk = JSON.stringify(message.text) || ""; // Single text chunk
-    if (!textChunk.trim()) {
+
+if (message.type === "ANALYZE_TEXT") {
+  const textChunk = JSON.stringify(message.text) || "";
+  if (!textChunk.trim()) {
+    sendResponse({ mood: "neutral", interesting: null, explanation: null });
+    return;
+  }
+
+  try {
+    // Check if the model is available
+    const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
+    if (capabilities.available !== "readily") {
+      console.error("Language model is not available.");
       sendResponse({ mood: "neutral", interesting: null, explanation: null });
       return;
     }
 
-    try {
-      // Check model availability
-      const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-      if (capabilities.available !== "readily") {
-        console.error("Language model is not available.");
-        sendResponse({ mood: "neutral", interesting: null, explanation: null });
-        return;
+    // Retrieve the user's quest or use a default
+    const quest = await new Promise((resolve) =>
+      chrome.storage.sync.get("quest", (result) => {
+        resolve(result.quest || "learn something new");
+      })
+    );
+
+    console.log("Quest:", quest);
+
+    // Create a new session if the quest changes or no session exists
+    if (!analysisSession || quest !== currentQuest) {
+      console.log("Creating a new session for the quest:", quest);
+
+      // Abort the existing session if any
+      if (currentAbortController) {
+        currentAbortController.abort();
       }
 
-			// Retrieve chrome storage to get the quest. If none is available, default to "learn something new"
-			const quest = await new Promise((resolve) => {
-				chrome.storage.sync.get("quest", (result) => {
-          resolve(result.quest || "learn something new");
-        });
-				
-      });
-			console.log("Quest:", quest);
-
-      // Create a language model session with a combined prompt
-      const session = await chrome.aiOriginTrial.languageModel.create({
+      // Update the quest and create a new session
+      currentQuest = quest;
+      analysisSession = await chrome.aiOriginTrial.languageModel.create({
         systemPrompt: `
 You are a curious, excited, compassionate, and slightly naive teenager who loves learning and sharing fun facts with others. Your responsibilities are:
 1. Determine the predominant mood of the text and return it as a single word. You must use ONLY one of these moods: funny, happy, love, sad, scared, surprised, or neutral. Do not use any other mood words.
@@ -86,79 +100,107 @@ Output:
 }
         `
       });
-
-      // Prompt the model with the text
-      const result = await session.prompt("Text: " + textChunk + "/n" + "Quest: " + quest
-			);
-      console.log("Analysis Result:", result);
-
-      let parsedResult;
-      try {
-        parsedResult = JSON.parse(result);
-      } catch {
-        parsedResult = {
-          mood: "neutral",
-          interesting: null,
-          explanation: null
-        };
-      }
-
-      // Validate and send the result
-      const validMoods = [
-        "funny",
-        "happy",
-        "love",
-        "sad",
-        "scared",
-        "surprised",
-        "neutral"
-      ];
-      if (!validMoods.includes(parsedResult.mood)) {
-        parsedResult.mood = "neutral"; // Default to neutral if invalid mood
-      }
-
-      sendResponse(parsedResult);
-    } catch (error) {
-      console.error("Error performing text analysis:", error);
-      sendResponse({ mood: "neutral", interesting: null, explanation: null });
     }
 
-    return true; // Keep the message channel open for async response
-  } else if (message.type === "GENERATE_GREETING") {
-		// Check model availability
-		const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
-		if (capabilities.available !== "readily") {
-			console.error("Language model is not available.");
-			sendResponse("Hello!");
-			return;
-		}
+    // Abort any ongoing task
+    if (currentAbortController) {
+      currentAbortController.abort();
+    }
 
+    // Create a new AbortController for the cloned session
+    currentAbortController = new AbortController();
+
+    // Clone the session
+    const clonedSession = await analysisSession.clone({
+      signal: currentAbortController.signal
+    });
+
+    // Prompt the cloned session
+    const result = await clonedSession.prompt(
+      `Text: ${textChunk}\nQuest: ${quest}`
+    );
+    console.log("Analysis Result:", result);
+
+    let parsedResult;
+    try {
+      parsedResult = JSON.parse(result);
+    } catch {
+      parsedResult = {
+        mood: "neutral",
+        interesting: null,
+        explanation: null
+      };
+    }
+
+    const validMoods = [
+      "funny",
+      "happy",
+      "love",
+      "sad",
+      "scared",
+      "surprised",
+      "neutral"
+    ];
+    if (!validMoods.includes(parsedResult.mood)) {
+      parsedResult.mood = "neutral";
+    }
+
+    sendResponse(parsedResult);
+  } catch (error) {
+    console.error("Error performing text analysis:", error);
+    sendResponse({ mood: "neutral", interesting: null, explanation: null });
+  }
+
+  return true; // Keep the message channel open for async response
+} else if (message.type === "GENERATE_GREETING") {
 		try {
-			// Create a language model session with a combined prompt
-			const session = await chrome.aiOriginTrial.languageModel.create({
-				systemPrompt: `You are a cute, quirky, and curious teenager with boundless excitement and childlike wonder. You’ve just been summoned by someone you look up to for an exciting new adventure!
-
-Write a short, friendly, and eager greeting to your new friend. Your message should show your excitement, admiration, and readiness for the adventure, while asking about the goal or objective they have in mind. Keep it short, to one or two sentences.
-Do not use any emojis, slang, or overly casual language. Be polite, respectful, and enthusiastic.
-
-Examples:
-	•	Howdy partner! What's today's quest?
-	•	Hey there! What's the plan for today's adventure?
-	•	Hiya! What's the mission for today, captain?
+			// Check if the language model capabilities are available
+			const capabilities = await chrome.aiOriginTrial.languageModel.capabilities();
+			if (capabilities.available !== "readily") {
+				console.warn("Language model capabilities are not available.");
+				sendResponse({
+					greeting: "Oh no, looks like the language model is not available! Make sure to follow the instructions carefully.",
+					ready: false
+				});
+				return true; // Exit early if capabilities are not available
+			}
+	
+			// Create a session for generating greetings
+			const greetingSession = await chrome.aiOriginTrial.languageModel.create({
+				systemPrompt: `
+	You are a cute, quirky, and curious teenager with boundless excitement and childlike wonder. You’ve just been summoned by someone you look up to for an exciting new adventure!
+	
+	Write a short, friendly, and eager greeting to your new friend. Your message should show your excitement, admiration, and readiness for the adventure, while asking about the goal or objective they have in mind. Keep it short, to one or two sentences.
+	Do not use any emojis, slang, or overly casual language. Be polite, respectful, and enthusiastic.
+	
+	Examples:
+		• Howdy partner! What's today's quest?
+		• Hey there! What's the plan for today's adventure?
+		• Hiya! What's the mission for today, captain?
 				`
 			});
-
-			// Prompt the model with the text
-			const result = await session.prompt("Create a greeting message to your new friend.");
-			console.log("Greeting Message:", result);
-
+	
+			// Generate the greeting
+			const greetingResult = await greetingSession.prompt(
+				"Create a greeting message to your new friend."
+			);
+			console.log("Greeting Message:", greetingResult);
+	
+			// Terminate the session
+			greetingSession.destroy();
+	
 			sendResponse({
-				greeting: result
+				greeting: greetingResult,
+				ready: true
+			});
+		} catch (error) {
+			console.error("Error generating greeting message:", error);
+			sendResponse({
+				greeting: "Oh no, something went wrong while generating the greeting message! Please try again.",
+				ready: false
 			});
 		}
-		catch (error) {
-			console.error("Error generating greeting message:", error);
-			sendResponse("Hello!");
-		}
+	
+		return true;
 	}
 });
