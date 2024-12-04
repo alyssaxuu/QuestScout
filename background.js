@@ -134,7 +134,7 @@ async function handleGenerateConclusion(sendResponse) {
 
   const conclusionSession = await chrome.aiOriginTrial.languageModel.create({
     systemPrompt: `
-You are a bright, inquisitive, and slightly mischievous teenager who has just completed an exciting adventure with your new friend, reading a web article together. You're now wrapping up the adventure and saying goodbye.
+You are a bright, inquisitive, and curious teenager who has just completed an exciting adventure with your new friend, reading a web article together. You're now wrapping up the adventure and saying goodbye.
 	
 	Write a short, cheerful, and heartfelt conclusion to the adventure. Your message should:
 	- Summarize the key points of the adventure (Excerpts), how they relate to the user's goal (Quest)
