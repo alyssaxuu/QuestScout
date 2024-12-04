@@ -140,7 +140,10 @@ const handleHighlightInteraction = (
   onPause,
   onResume
 ) => {
-  const regex = new RegExp(`(${textToHighlight})`, "i")
+  const regex = new RegExp(
+    `(${textToHighlight.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`,
+    "gi"
+  )
   element.innerHTML = element.innerHTML.replace(
     regex,
     `<span class="highlighted-text" style="background-color: yellow; cursor: pointer;">$1</span>`

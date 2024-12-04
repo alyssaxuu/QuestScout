@@ -20,12 +20,17 @@ export class FloatingCharacter {
     this.element.style.width = "80px"
     this.element.style.height = "80px"
     this.element.style.borderRadius = "50%"
-    this.element.style.zIndex = "10000"
-    this.element.style.transition = "all 1s ease-in-out"
+    this.element.style.zIndex = "9999999999999"
+    this.element.style.transformOrigin = "center top"
+    this.element.style.top = "10px"
+    this.element.style.opacity = "0"
+    this.element.style.transform = "scale(.5)"
+    this.element.style.transition =
+      "transform .5s ease-in-out, opacity .5s ease-in-out"
     document.body.appendChild(this.element)
 
     const avatar = document.createElement("img")
-    avatar.src = HappyReadingSVG // Default to happy face
+    avatar.src = HappyFound // Default to happy face
     avatar.style.width = "100%"
     avatar.style.height = "100%"
     avatar.style.userSelect = "none"
@@ -58,6 +63,24 @@ export class FloatingCharacter {
     await new Promise((resolve) => setTimeout(resolve, 1000))
   }
 
+  async showInCorner() {
+    setTimeout(() => {
+      this.element.style.transform = "scale(1)"
+      this.element.style.right = "350px"
+      this.element.style.top = "30px"
+      this.element.style.opacity = "1"
+      this.element.style.position = "fixed"
+      //this.element.style.transition = "all 1s ease-in-out"
+    }, 100)
+    await new Promise((resolve) => setTimeout(resolve, 400))
+  }
+
+  remove() {
+    if (this.element) {
+      this.element.remove() // Remove the DOM element
+    }
+  }
+
   updateMood(mood, found = false) {
     const moodData = this.moods[mood]
     if (!moodData) {
@@ -68,7 +91,25 @@ export class FloatingCharacter {
     this.avatar.src = found ? moodData.found : moodData.image
   }
 
+  ready() {
+    this.updateMood("happy", false)
+    this.element.style.position = "absolute"
+    this.element.style.right = "auto"
+    this.element.style.left = "auto"
+    this.element.style.transition = "all 1s ease-in-out"
+  }
+
   async speak(message) {
     await this.bubble.show(message)
+  }
+
+  async showWithChoices(message, choices) {
+    const result = await this.bubble.showWithChoices(message, choices)
+    return result
+  }
+
+  async showWithInput(message, placeholder) {
+    const result = await this.bubble.showWithInput(message, placeholder)
+    return result
   }
 }

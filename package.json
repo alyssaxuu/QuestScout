@@ -28,7 +28,7 @@
     "host_permissions": [
       "https://*/*"
     ],
-		"permissions": ["aiLanguageModelOriginTrial", "scripting", "tabs"],
+		"permissions": ["aiLanguageModelOriginTrial", "scripting", "tabs", "activeTab", "storage"],
 		"trial_tokens": ["As+Ed4M9aBQs6cLLSSWlwtjxrKF8dew6N48HQ65imMdMmu5+uYfJ4d2H9IrpEOgsWts+0s3o2f3zUFe+nJ+jjA4AAAB4eyJvcmlnaW4iOiJjaHJvbWUtZXh0ZW5zaW9uOi8vZW9kbW1obWhiZGxnbm9sam9lZGFubG1kY2ZobG9nY2giLCJmZWF0dXJlIjoiQUlQcm9tcHRBUElGb3JFeHRlbnNpb24iLCJleHBpcnkiOjE3NjA0ODYzOTl9"]
   }
 }
