@@ -20,7 +20,7 @@ Made by [Alyssa X](https://twitter.com/alyssaxuu) & [Leo](https://www.linkedin.c
 ## Installation for testing
 1. Make sure to follow the instructions outlined [in this doc](https://docs.google.com/document/d/1VG8HIyz361zGduWgNG7R_R8Xkv0OOJ8b5C9QKeCjU0c/edit?tab=t.0#heading=h.witohboigk0o) to enable the Prompt API.
 2. Turn off the chrome://flags/#text-safety-classifier flag (from testing it seems flaky without, also based on [this post](https://groups.google.com/a/chromium.org/g/chrome-ai-dev-preview/c/WNB2xMpMyGE)).
-3. Download the Build.zip file from the releases page, and upload the folder in chrome://extensions/ to install the extension.
+3. Download the [Folder.zip](https://github.com/alyssaxuu/questscout/releases/tag/dev) file from the releases page, and upload the folder in chrome://extensions/ to install the extension.
 4. Pin the extension to make it easier to activate.
 
 ## How to use
