@@ -7,7 +7,7 @@ QuestScout is a curious, playful sidekick that captures your browsing intent, hi
 
 It was (hastily 😅) developed in 24 hours for the [Google Chrome Built-in AI Challenge](https://googlechromeai.devpost.com/), using the new [Prompt API for Chrome Extensions](https://developer.chrome.com/docs/extensions/ai/prompt-api).
 
-👉 [Try it out!](#installation-for-testing)
+🎥 [Watch a demo of it in action](https://www.youtube.com/watch?v=eMjvKiUyagY)
 
 Made by [Alyssa X](https://twitter.com/alyssaxuu) & [Leo](https://www.linkedin.com/in/leonorfurtado/).
 
